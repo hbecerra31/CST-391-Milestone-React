@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { format } from "date-fns";
 import dataSource from "../dataSource";
@@ -8,20 +8,17 @@ const TaskView = ({ taskList, onSaveTask }) => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Determine the mode based on the URL path
     const isEditMode = location.pathname.includes("edit");
     const isCreateMode = location.pathname.includes("new");
     const isViewMode = !isEditMode && !isCreateMode;
 
-    // Find the task if in view or edit mode
     const task = taskList.find((task) => task.id === parseInt(id)) || {
         id: "",
         task: "",
-        dueDate: "",
-        priority: "Low,",
+        dueDate: null,
+        priority: "Low",
     };
 
-    // State for form inputs (used in create/edit mode)
     const [formData, setFormData] = useState({
         id: task.id,
         task: task.task,
@@ -29,38 +26,47 @@ const TaskView = ({ taskList, onSaveTask }) => {
         priority: task.priority,
     });
 
-    // Handle input changes
+    useEffect(() => {
+        if (isEditMode && task) {
+            setFormData({
+                id: task.id,
+                task: task.task,
+                dueDate: task.dueDate ? format(new Date(task.dueDate), "yyyy-MM-dd") : "",
+                priority: task.priority,
+            });
+        }
+    }, [task, isEditMode]);
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    // Handle form submission
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        // Ensure `dueDate` is set to null if it's blank
+        const processedFormData = {
+            ...formData,
+            dueDate: formData.dueDate === "" ? null : formData.dueDate,
+        };
+
+        console.log("Processed form data:", processedFormData);
 
         try {
             if (isCreateMode) {
-                // Create a new task
-                await dataSource.post('/tasks', formData);
-                console.log("Task created successfully:", formData);
+                await dataSource.post("/tasks", processedFormData);
+                console.log("Task created successfully:", processedFormData);
             } else if (isEditMode) {
-                // Edit an existing task
-                await dataSource.put(`/tasks/${task.id}`, formData);
-                console.log("Task updated successfully:", formData);
+                await dataSource.put(`/tasks/${task.id}`, processedFormData);
+                console.log("Task updated successfully:", processedFormData);
             }
 
-            // Call the parent function to refresh the task list
-            onSaveTask(formData);
-
-            // Redirect to the task list
+            onSaveTask(processedFormData);
             navigate("/");
-
         } catch (error) {
             console.error("Error saving task:", error);
         }
-
-
     };
 
     if (isViewMode && !task.id) {
@@ -84,7 +90,6 @@ const TaskView = ({ taskList, onSaveTask }) => {
                 </div>
                 <div className="card-body">
                     {isViewMode ? (
-                        // View Mode
                         <>
                             <div className="row mb-3">
                                 <div className="col-4 text-end fw-bold">Task ID:</div>
@@ -115,7 +120,6 @@ const TaskView = ({ taskList, onSaveTask }) => {
                             </div>
                         </>
                     ) : (
-                        // Create/Edit Mode
                         <form onSubmit={handleSubmit}>
                             <div className="mb-3">
                                 <label htmlFor="task" className="form-label fw-bold">
@@ -142,7 +146,6 @@ const TaskView = ({ taskList, onSaveTask }) => {
                                     name="dueDate"
                                     value={formData.dueDate}
                                     onChange={handleInputChange}
-                                    required
                                 />
                             </div>
                             <div className="mb-3">
@@ -150,7 +153,7 @@ const TaskView = ({ taskList, onSaveTask }) => {
                                     Priority
                                 </label>
                                 <select
-                                    className="form-select "
+                                    className="form-select"
                                     id="priority"
                                     name="priority"
                                     value={formData.priority}
@@ -177,7 +180,6 @@ const TaskView = ({ taskList, onSaveTask }) => {
                             Edit
                         </button>
                     )}
-
                     <button className="btn btn-secondary" onClick={() => navigate("/")}>
                         Back
                     </button>
